@@ -13,9 +13,13 @@ import minecrafttransportsimulator.packloading.PackParser;
 import minecrafttransportsimulator.systems.ConfigSystem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import xiao.battleroyale.BattleRoyale;
@@ -87,7 +91,7 @@ public class VehicleGenerator {
 
         // 载具内部坐标只认 NBT 的 positionx/y/z，外部 setPos 每tick都会被它反写覆盖，
         // 所以落点必须在这里写进 NBT
-        CompoundTag data;
+        CompoundTag data = new CompoundTag();
         CompoundTag mtsData = new CompoundTag(); {
             // 先铺协议指定的部件，载具自身字段后写，避免被部件数据覆盖
             mtsData.merge(protocol.parts);
@@ -100,16 +104,20 @@ public class VehicleGenerator {
             mtsData.putDouble(POSITION_Z, spawnPos.z);
             applyPower(mtsData, vehicleItem, protocol);
         }
-        data = mtsData; // data.put(MTS_NBT_KEY, mtsData);
+        data.put(MTS_NBT_KEY, mtsData);
 
         try {
-            Entity entity = entityType.create(lootContext.serverLevel);
+            Entity entity = entityType.create(lootContext.serverLevel, EntitySpawnReason.COMMAND);
             if (entity == null) {
                 CbraMts.LOGGER.debug("VehicleGenerator: Failed to create vehicle {}:{}:{} at {}",
                         protocol.packID, protocol.systemName, subName, spawnOrigin);
                 return;
             }
-            entity.load(data);
+            {
+            ValueInput input = TagValueInput.create(ProblemReporter.DISCARDING,
+                    lootContext.serverLevel.registryAccess(), data);
+            entity.load(input);
+            }
             entity.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
             if (!lootContext.serverLevel.addFreshEntity(entity)) {
                 CbraMts.LOGGER.debug("VehicleGenerator: Failed to add vehicle {}:{}:{} at {}",
@@ -200,12 +208,15 @@ public class VehicleGenerator {
      * 协议指定的部件可能覆盖引擎，优先看它们，其次看车辆包里该槽位的默认部件。
      */
     private static JSONPart.JSONPartEngine findEngine(ItemVehicle vehicleItem, VehicleDataProtocol protocol) {
-        for (String partKey : protocol.parts.getAllKeys()) {
-            CompoundTag partData = protocol.parts.getCompound(partKey);
+        for (String partKey : protocol.parts.keySet()) {
+            CompoundTag partData = protocol.parts.getCompound(partKey).orElse(null);
+            if (partData == null) {
+                continue;
+            }
             JSONPart.JSONPartEngine engine = getEngine(PackParser.getItem(
-                    partData.getString(PACK_ID),
-                    partData.getString(SYSTEM_NAME),
-                    partData.getString(SUB_NAME)));
+                    partData.getString(PACK_ID).orElse(""),
+                    partData.getString(SYSTEM_NAME).orElse(""),
+                    partData.getString(SUB_NAME).orElse("")));
             if (engine != null) {
                 return engine;
             }
