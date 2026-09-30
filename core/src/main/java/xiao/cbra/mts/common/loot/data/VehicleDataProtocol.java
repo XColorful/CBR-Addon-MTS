@@ -1,6 +1,7 @@
 package xiao.cbra.mts.common.loot.data;
 
 import com.google.gson.JsonObject;
+import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -11,9 +12,38 @@ import java.util.Set;
 
 public class VehicleDataProtocol {
 
+    // 载具包ID
+    public final @NotNull String packID;
+
+    // 载具系统名
+    public final @NotNull String systemName;
+
+    // 载具子定义名
+    public final @NotNull String subName;
+
+    // 指定槽位的部件，键为 part_序号
+    public final @NotNull CompoundTag parts;
+
+    // 燃料流体名，为空则按引擎配置自动挑选
+    public final @NotNull String fuel;
+
+    // 燃料量，<=0 则按载具配置加满
+    public final double fuelQty;
+
+    // 电池电量，<=0 则按载具配置充满
+    public final double electricPower;
+
 
     @ApiStatus.Internal
-    public VehicleDataProtocol() {
+    public VehicleDataProtocol(@NotNull String packID, @NotNull String systemName, @NotNull String subName,
+                               @NotNull CompoundTag parts, @NotNull String fuel, double fuelQty, double electricPower) {
+        this.packID = packID;
+        this.systemName = systemName;
+        this.subName = subName;
+        this.parts = parts;
+        this.fuel = fuel;
+        this.fuelQty = fuelQty;
+        this.electricPower = electricPower;
     }
 
     public static @Nullable VehicleDataProtocol getConfigFromProtocol(String protocol, @NotNull JsonObject jsonTag) {

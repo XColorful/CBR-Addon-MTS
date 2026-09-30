@@ -883,3 +883,279 @@ MTS 那边是 **Forge 1.20.1**（`mods.toml` + `net.minecraftforge.gradle` + Jav
 3. `VehicleGeneratorManager` 会 `setCanceled(true)`，所以 `cbramts:` 条目在 `generateVehicle` 实现前是静默无产出（默认生成也被压掉）。
 
 下一步就是把 `VehicleGenerator.generateVehicle` 填上——按之前查的 MTS 侧结论，核心是构造 `BuilderEntityExisting`（`entityid` + `packID`/`systemName`/`subName` + `part_N` 那套），并在落点上补 `entity.position` 的接管。要我接着做吗？
+
+# 
+
+```
+必要的字段都补到protocol里，跟README一样，并且注意ResourceLocation用BattleRoyale.getMcRegistry()构造，左值类型用var而不要显式写ResourceLocation，generator生成时的位置设置逻辑也完成
+```
+
+# 
+
+README 里 MachineMax 那版的 `jsonTag` 字段是 `vehicleLocation`，MTS 这版目前是空的。先确认我手里 MTS 源码版本和 addon 实际编译用的 jar 是否一致。
+
+jar 找到了。看一下 MTS 侧实际可用的 API 签名。
+
+`spawnEntityInternal` 返回 `BuilderEntityExisting`——正是写 gameId 需要的。看它的可见性和 Builder 的字段。
+
+`spawnEntityInternal` 是 `protected`，拿不到 builder。但有个更好的路子——先确认 README 是否已更新字段。
+
+README 的 `jsonTag` 还是空的。我先确认几个 MTS 常量，好把生成逻辑写对。
+
+CBR 0.5.6 / 1.20.1 的 `getMcRegistry()`、`createResourceLocation`、`getEntityType` 都在。确认一下实际编译用的 jar 版本。
+
+全部 API 都在实际编译依赖（8053316）上确认过了。写代码。
+
+泛型不变性导致的：`PackParser.getItem` 在 `var` 下推断成 `AItemPack<AJSONItem>`，跟 `ItemVehicle` 无从属关系，`instanceof` 就编译不过。用 `AItemPack<?>` 声明即可。
+
+编译通过。
+
+## 改了什么
+
+**协议字段**（[VehicleDataProtocol.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol.java)）
+
+```java
+// 载具ResourceLocation
+public final @NotNull ResourceLocation vehicleLocation;
+
+// 载具子定义名
+public final @NotNull String subName;
+```
+
+**解析**（[VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java)）——按你的要求用 mcRegistry 构造、左值 `var`：
+
+```java
+var vehicleLocation = BattleRoyale.getMcRegistry().createResourceLocation(vehicleLocationString);
+```
+
+**生成逻辑**（[VehicleGenerator.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java)）已经填完。
+
+## 位置问题在这里被解决了
+
+这是关键点：**addon 在运行时构造 NBT，所以能把实际刷新坐标写进 `positionx/y/z`**。
+
+之前纯 CBR 配置做不到，是因为 `EntityEntry` 用的是配置里烤死的静态 NBT。现在流程是：
+
+1. `targetBlockEntity.getBlockPos()` → 落点 `Vec3(x+0.5, y+1, z+0.5)`
+2. 构造 `CompoundTag`：`entityid`（取 `EntityVehicleF_Physics.class.getSimpleName()`）、`packID`/`systemName`（从 RL 拆）、`subName`、**`positionx/y/z` = 本次落点**
+3. `mcRegistry.getEntityType("mts:builder_existing")` → `entityType.create(level)` → `load(data)` → `addFreshEntity`
+4. `addGameId(entity, lootContext.gameId)`
+
+因为 MTS 恢复内部实体时位置只认 NBT，而这次 NBT 里的坐标就是我们算出来的——**不需要改 MTS**，之前那条一行补丁的方案可以作废。
+
+同时用 `PackParser.getItem(packID, systemName, subName)` 做了存在性校验，未知载具直接 debug 日志返回，不会留个被 MTS 默默丢弃的空壳。
+
+## 四点需要你确认
+
+**1. `subName` 是我加的。** README 的 `jsonTag` 目前还是空的，MachineMax 那版只有 `vehicleLocation`。加 `subName` 是为了能刷出 `_black` 这种子定义变体（你 F3+I 那两台都是 `subName: "_black"`）。只想要 `vehicleLocation` 的话删掉即可。
+
+**2. 有一处用不了 `var`。** `PackParser.getItem` 是双泛型方法，`var` 会推断成 `AItemPack<AJSONItem>`，与 `ItemVehicle` 因泛型不变性无从属关系，`instanceof` 直接编译不过。所以那行必须是 `AItemPack<?> packItem = ...`（其余左值都是 `var`）。
+
+**3. 电池和燃料没管。** 没写 `electricPower`，所以载具刷出来电池是空的，加上没燃料——继承来的 Javadoc 那句"刷出来的就能直接开"目前**不成立**。要让它成立需要补 `electricPower`（新车是 `batteryCapacity * 0.85715`）和燃料。
+
+**4. README 的 `jsonTag` 还是空的**，建议同步补上字段说明，否则和代码对不上。
+
+要我把 3 和 4 一起做掉吗？
+
+# 
+
+```
+README要补充，并且mts的字段应该不是叫vehicleLocation，protocol改成mts的名称
+只要ResourceLocation左值用var就行，其他的可以不用var
+燃料先不管
+```
+
+# 
+
+这里有个我不该猜的命名问题——我先确认，避免又白改一轮。「mts的字段」和「mts的名称」有几种读法，而且会连带决定 README 怎么写。
+
+明白了：三个 MTS 原生键名 + protocol 保持 `cbramts:0.5.6`。改代码。
+
+README 里 JSON 块的缩进要先看清（制表符还是空格）。
+
+控制台编码打不出中文，改用脚本做替换（只输出 ASCII 诊断），再靠 `git diff` 验收。
+
+README 两处都补上了。看一下结果，顺便编译。
+
+都按你说的改完了，编译通过。
+
+## 改动
+
+**协议字段改成 MTS 自己的三个键名**（[VehicleDataProtocol.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol.java)）
+
+```java
+public final @NotNull String packID;
+public final @NotNull String systemName;
+public final @NotNull String subName;
+```
+
+[VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java) 直接从 jsonTag 读这三个键，不再构造载具 ResourceLocation。protocol 字符串保持 `cbramts:0.5.6`，`getConfigFromProtocol` 仍然比较 `CbraMts.MOD_ID`。
+
+**`var` 只剩一处**——就是那个 ResourceLocation 左值：
+
+```
+VehicleGenerator.java:48:  var builderEntityRl = mcRegistry.createResourceLocation(BUILDER_ENTITY);
+```
+
+其余左值都改成显式类型（`IMcRegistry` / `AItemPack<?>` / `EntityType<?>` / `Entity` / `Vec3` / `BlockPos`）。
+
+**README 双语都补了**（[README.md](D:/Github/CBR-Addon-MTS/README.md)）：中英文各自加了字段说明和填好的 jsonTag 示例。
+
+```json
+{
+	"lootType": "event",
+	"protocol": "cbramts:0.5.6",
+	"jsonTag": {
+		"packID": "mtsofficialpack",
+		"systemName": "scout",
+		"subName": "_black"
+	}
+}
+```
+
+燃料按你说的没动。
+
+## 还剩一件事
+
+`VehicleGenerator` 的 Javadoc 里那句「刷出来的就能直接开」**目前不成立**——没写 `electricPower`，载具电池是空的，加上没燃料，实际上开不走。
+
+要么补 `electricPower`（新车 = `batteryCapacity * 0.85715`，由 `AEntityVehicleE_Powered.BATTERY_DEFAULT_CHARGE` 给出）、要么把那句注释先删掉免得误导。你定。
+
+# 
+
+```
+protocol还要给parts列表，之前F3+I里每个轮子和座位都是一个parts
+像这样
+parts: {
+    "part_1": ""
+}
+electricPower和燃料看下能不能直接查当前准备刷的车的配置，如果没填就默认用最大值
+写完后把D:\Temp-File\下的模板也改成这个protocol的写法
+```
+
+# 
+
+三件事：加 `parts`、电池/燃料从车辆配置取、然后把模板改成新写法。先查电池/燃料能查到什么。
+
+`AEntityVehicleE_Powered:259` 已经有一段"挑最猛的燃料"的现成逻辑。看完整上下文，顺便确认字段名。
+
+`AEntityVehicleE_Powered.addPartsPostAddition` 里已经有一段**自动加油**逻辑——但只在 `data == null` 且包定义了 `defaultFuelQty` 时触发。再看几处就能定方案。
+
+这里有两个会同时决定代码、README 和模板的设计点，我先定下来再动手。
+
+先说燃料的现状：MTS **自己就有自动加油**逻辑（`AEntityVehicleE_Powered.addPartsPostAddition:250`），规则是"取有效引擎 `fuelType` 下效力最高、且 `isFluidValid` 的流体，加到 `defaultFuelQty`"。但它只在 `data == null` 且包设了 `defaultFuelQty` 时触发——我们走的是 NBT 路线（`data != null`），所以被跳过了。
+
+这里有个坑：引擎类型可能是 ELECTRIC（要 `electricity` 而不是燃料），而 protocol 的 `parts` 又能覆盖引擎，所以"该加什么"取决于最终装的是哪个引擎。
+
+两个都定了。`parts` 是 SNBT 字符串（用 CBR 的 `NBTUtils.stringToNBT` 解析），燃料/电池自动 + 可选覆盖字段。最后确认默认部件怎么走。
+
+API 都齐了。确认 event 条目的 JSON 键名，然后开写。
+
+两个决定都清楚了。开始写代码。
+
+编译通过。现在把模板改成 protocol 写法。
+
+模板已生成（scout 10 个部件、merc 11 个）。最后补 README 的新字段说明。
+
+全部完成，编译通过。
+
+## 代码
+
+**`parts`**（[VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java)）
+
+jsonTag 里的 `parts` 是 SNBT 字符串，用 CBR 的 `NBTUtils.stringToNBT` 解析成 `CompoundTag`：
+
+```java
+CompoundTag parts = NBTUtils.stringToNBT(JsonUtils.getJsonString(jsonTag, PARTS, ""));
+```
+
+生成时直接铺进载具 NBT（[VehicleGenerator.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java)）：
+
+```java
+data.merge(protocol.parts);   // part_N
+data.putString("entityid", ...);   // 载具自身字段后写，防止被部件数据覆盖
+```
+
+因为键名就是 MTS 存档里的 `part_序号`，F3+I 里的 `part_N` 可以直接搬过来。缺的字段（`part_active`/`uniqueUUID` 等）MTS 会补默认值。
+
+**电池 / 燃料**——自动，协议里可覆盖：
+
+| 字段 | 留空时 |
+|---|---|
+| `electricPower` | `batteryCapacity * BATTERY_DEFAULT_CHARGE`（充满） |
+| `fuel` | 找最终装上的引擎，按它 `fuelType` 挑效力最高且 `isFluidValid` 的流体；ELECTRIC 引擎直接用 `electricity` |
+| `fuelQty` | `motorized.fuelCapacity`（加满） |
+
+引擎判定优先看 protocol 的 `parts`（可能覆盖引擎），其次看车辆包各槽位的 `defaultPart` / `conditionalDefaultParts`。取流体的规则和 `AEntityVehicleE_Powered.addPartsPostAddition` 完全一致，所以不会出现"MTS 自己选得出、我们选不出"的偏差。
+
+## 模板与文档
+
+[D:/Temp-File/immersive_vehicles.json](D:/Temp-File/immersive_vehicles.json) 已改成 `lootType: event` + `protocol: cbramts:0.5.6`，两辆车各自带完整 parts（scout 10 个 / merc 11 个），和你 F3+I 的拼装一致。如果只想要包默认组装，把 `parts` 整个删掉即可。
+
+[README.md](D:/Github/CBR-Addon-MTS/README.md) 中英文都补了这四个字段的说明和 `parts` 的转义示例。
+
+## 两点提醒
+
+**1. 用 `<= 0` 表示"未指定"，所以没法显式刷一辆没油/没电的车。** 想让某辆车空油箱，目前表达不出来（删掉字段等于自动加满）。要支持的话得换成可空类型（`Double` / `Optional`），你说一声我改。
+
+**2. 多个引擎只取第一个。** 如果车辆默认部件里有多个不同类型的引擎（比如油电混动），只按先找到的那个决定燃料；`parts` 显式指定引擎时同样只取第一个。
+
+# 
+
+```
+parts改用JsonObject，效果应该是这样：
+"parts": {
+    "part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}"
+    "part_1": ""
+}
+然后在mod里把他拼起来
+```
+
+# 
+
+`parts` 改成 JsonObject，每个槽位一个 NBT 字符串，mod 里拼装。
+
+模板已换成对象形式。最后同步 README 的示例和字段说明。
+
+改完了，编译通过。
+
+## 改动
+
+**`parts` 变成 JsonObject**（[VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java)），mod 里逐个拼装：
+
+```java
+private static @NotNull CompoundTag getParts(@NotNull JsonObject jsonTag) {
+    CompoundTag parts = new CompoundTag();
+    JsonObject partsJson = JsonUtils.getJsonObject(jsonTag, PARTS, null);
+    if (partsJson == null) {
+        return parts;
+    }
+    for (String partKey : partsJson.keySet()) {
+        CompoundTag partData = NBTUtils.stringToNBT(JsonUtils.getJsonString(partsJson, partKey, ""));
+        if (!partData.isEmpty()) {
+            parts.put(partKey, partData);
+        }
+    }
+    return parts;
+}
+```
+
+键就是 `part_序号`，值是那个部件的 NBT 字符串，拼出来的 `CompoundTag` 直接 `merge` 进载具 NBT——所以和你写的形式一致：
+
+```json
+"parts": {
+    "part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}"
+}
+```
+
+**空值等于跳过**：`NBTUtils.stringToNBT("")` 返回空 CompoundTag，我判空后不写入。所以你例子里那个 `"part_1": ""` 和不写 `part_1` 效果一样——该槽位交给包里的默认部件。
+
+## 同步更新
+
+[D:/Temp-File/immersive_vehicles.json](D:/Temp-File/immersive_vehicles.json) 已重新生成成对象形式（scout 10 个槽位、merc 11 个），[README.md](D:/Github/CBR-Addon-MTS/README.md) 中英文的示例和 `parts` 字段说明也一并改了：
+
+```
+- parts：可选，按槽位指定部件，键为 part_序号，值为该部件的NBT字符串，留空则用包里的默认部件
+```
+
+上一轮提的两点限制仍然存在（`fuelQty`/`electricPower` 用 `<= 0` 表示未指定、多引擎只取第一个），需要的话再说。

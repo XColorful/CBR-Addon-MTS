@@ -22,11 +22,25 @@
 
 添加[通用事件刷新](https://github.com/XColorful/BattleRoyale/wiki/General-loot-config#通用事件刷新)协议：
 
+- packID：载具包ID
+- systemName：载具系统名
+- subName：载具子定义名，可为空
+- parts：可选，按槽位指定部件，键为 part_序号，值为该部件的NBT字符串，留空则用包里的默认部件
+- fuel：可选，燃料流体名；留空则按引擎的燃料类型自动挑选效力最高且实际存在的流体
+- fuelQty：可选，燃料量；留空则按载具配置加满
+- electricPower：可选，电池电量；留空则按载具配置充满
+
 ```json
 {
 	"lootType": "event",
 	"protocol": "cbramts:0.5.6",
 	"jsonTag": {
+		"packID": "mtsofficialpack",
+		"systemName": "scout",
+		"subName": "_black",
+		"parts": {
+			"part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}"
+		}
 	}
 }
 ```
@@ -63,11 +77,25 @@ This mod is an addon mod for [Custom BattleRoyale](https://github.com/XColorful/
 
 Add [Common event loot](https://github.com/XColorful/BattleRoyale/wiki/General-loot-config#common-event-loot) protocol:
 
+- packID: Vehicle pack ID
+- systemName: Vehicle system name
+- subName: Vehicle sub-definition name, may be empty
+- parts: Optional, parts for specific slots, keyed by part_<index>, each value an NBT string; empty slots use the pack's default part
+- fuel: Optional, fuel fluid name; if omitted, the most potent available fluid for the engine's fuel type is used
+- fuelQty: Optional, fuel amount; if omitted, filled to the vehicle's capacity
+- electricPower: Optional, battery charge; if omitted, filled to the vehicle's capacity
+
 ```json
 {
 	"lootType": "event",
 	"protocol": "cbramts:0.5.6",
 	"jsonTag": {
+		"packID": "mtsofficialpack",
+		"systemName": "scout",
+		"subName": "_black",
+		"parts": {
+			"part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}"
+		}
 	}
 }
 ```
