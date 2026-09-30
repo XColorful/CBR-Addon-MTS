@@ -822,3 +822,64 @@ CBR 也没有可用的"实体已生成"钩子给配置层用——`api/event/loo
 ---
 
 如果你能动 MTS，我建议直接走 A。要我把补丁按你 MTS 仓库的实际行号上下文整理成可直接应用的 diff 吗？还是你先自己试一下这一行？
+
+# 
+
+```
+先按CBR-Addon-MachineMax对称地补上Protocol，类名保持相同的VehicleDataProtocol，VehicleGeneratorManager和Generator也是一样的，CustomEventHandler页补上
+完全同构，注释相应位置也改，只是Generator和protocol字段留空
+```
+
+# 
+
+两个仓库都看到了。让我读完 MachineMax 的全部对称文件。
+
+MTS 那边是 **Forge 1.20.1**（`mods.toml` + `net.minecraftforge.gradle` + Java 17），MachineMax 是 NeoForge——这个差异我会保留。再确认构建参数和入口。
+
+结构清楚了。MTS 那边是 Forge 1.20.1，入口 `CbraMtsForge` 已经在调 `CbraMts.init`，所以只需要补 loot/event 这几层。开始写。
+
+`onReceiveWrongEvent` 是默认方法，Javadoc 里的 `gameId` 字段也确认存在。最后接上注册入口。
+
+补完了。跑一次编译验证——这个 addon 是对着 CBR 0.5.6 / 1.20.1 的 jar 编译的，和我读的 1.21.1 源码不是同一份，值得验一下 API 对得上。
+
+趁编译跑着，做一次归一化对比，确认除了包名/特有内容之外真的同构。
+
+`VehicleGeneratorManager` 和 `CustomEventHandler` 归一化后**逐字节相同**；两个 Protocol 类只差在留空的字段。再核对 Generator 的签名。
+
+补完了，5 个新文件 + 1 处接线。归一化对比结果：`VehicleGeneratorManager` 和 `CustomEventHandler` 与 MachineMax **逐字节相同**，两个 Protocol 类只差在留空的字段，`generateVehicle` 签名一致。
+
+新增：
+- [VehicleDataProtocol.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol.java)
+- [VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java)
+- [VehicleGenerator.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java)
+- [VehicleGeneratorManager.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGeneratorManager.java)
+- [CustomEventHandler.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/event/custom/CustomEventHandler.java)
+
+修改：
+- [CbraMts.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/CbraMts.java) — `init()` 里加 `CustomEventHandler.registerAll(BattleRoyale.getEventRegister())`，与 MachineMax 一致
+
+留空的只有你说的两处：`VehicleDataProtocol` / `VehicleDataProtocol056` 的载具字段（注释写成"载具字段待定"），以及 `VehicleGenerator.generateVehicle` 的方法体。
+
+## 三个需要你确认的点
+
+**1. 协议版本号我填了 `0.5.6`**，`switch` 分支和类名 `VehicleDataProtocol056` 都跟着它走。这是照抄 MachineMax 的（它 `mod_version=0.5.6`）。但你 MTS 的 `mod_version=0.0.0`——如果协议版本应该跟 addon 版本走，那应该是 `0.0.0` 和 `VehicleDataProtocol000`。一行改动的事，你定。
+
+**2. 没建 `SubPartMixin`。** 你列的四项里没有它，而且它的目标是 `io.github.sweetzonzi.machine_max.*`（MachineMax 的 `SubPart#refreshPartEntity` 会重建部件实体导致丢 gameId），MTS 的部件模型完全不同，不能照搬。另外 MTS 这个 addon 目前没有 `mixins.json`，`mods.toml` 里也没有 `[[mixins]]` 段——真要做的话这两处也要补。
+
+**3. `VehicleGeneratorManager` 照样 `event.setCanceled(true)`。** 完全同构的代价是：一旦有配置写了 `cbramts:` 协议，它会走空实现然后取消事件 → 什么都不刷，同时默认生成也被压掉。在 `generateVehicle` 实现之前，这类条目会是"静默无产出"。如果你希望留空期间退回默认行为，把那行去掉即可。
+
+编译验证还在后台跑（Gradle 冷启动 + 拉依赖比较慢）。这个 addon 是对着 CBR 0.5.6 / 1.20.1 的 jar 编译的，我读的是 1.21.1 源码，API 是否完全对齐得等编译结果——出来我告诉你。
+
+编译通过（exit 0，只有 JVM native-access 警告）。确认一下 class 文件真的产出了。
+
+编译通过，7 个 class 全部产出（含 `VehicleGeneratorManager$VehicleGeneratorManagerHolder` 静态内部类，说明继承 `ICustomEventHandler` 之类的接口实现也都对上了）。
+
+**结论：1.20.1 的 CBR 0.5.6 API 和我写的代码完全对齐**，`ICustomEventHandler.onReceiveWrongEvent`（默认方法）、`CustomEventType.CUSTOM_GENERATE_EVENT`、`CustomGenerateEvent` 的 `getProtocol/getJsonTag/getLootContext/getTarget/getLootData`、`LootGenerator.LootContext` 这些签名在 1.20.1 上都成立，不用担心跨版本差异。
+
+前面的三个确认点仍然待你定夺，都不影响编译：
+
+1. 协议版本号填的是 `0.5.6`（照抄 MachineMax），类名 `VehicleDataProtocol056` 跟着它。要跟 `mod_version=0.0.0` 走的话是 `0.0.0` + `VehicleDataProtocol000`。
+2. 没建 `SubPartMixin`（目标是 MachineMax 专有类，且本仓库没有 `mixins.json`／`mods.toml` 的 `[[mixins]]` 段）。
+3. `VehicleGeneratorManager` 会 `setCanceled(true)`，所以 `cbramts:` 条目在 `generateVehicle` 实现前是静默无产出（默认生成也被压掉）。
+
+下一步就是把 `VehicleGenerator.generateVehicle` 填上——按之前查的 MTS 侧结论，核心是构造 `BuilderEntityExisting`（`entityid` + `packID`/`systemName`/`subName` + `part_N` 那套），并在落点上补 `entity.position` 的接管。要我接着做吗？
