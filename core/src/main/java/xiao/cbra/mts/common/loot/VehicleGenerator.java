@@ -17,6 +17,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import xiao.battleroyale.BattleRoyale;
 import xiao.battleroyale.api.loot.data.ILootData;
 import xiao.battleroyale.api.minecraft.IMcRegistry;
@@ -60,13 +61,14 @@ public class VehicleGenerator {
                                        VehicleDataProtocol protocol) {
         IMcRegistry mcRegistry = BattleRoyale.getMcRegistry();
 
-        AItemPack<?> packItem = PackParser.getItem(protocol.packID, protocol.systemName, protocol.subName);
-        if (!(packItem instanceof ItemVehicle)) {
+        ItemVehicle vehicleItem = resolveVehicle(protocol, lootContext);
+        if (vehicleItem == null) {
             CbraMts.LOGGER.debug("VehicleGenerator: Unknown vehicle {}:{}:{}",
-                    protocol.packID, protocol.systemName, protocol.subName);
+                    protocol.packID, protocol.systemName, protocol.subNames);
             return;
         }
-        ItemVehicle vehicleItem = (ItemVehicle) packItem;
+        // 配置留空时会随机挑一个变体，后续一律用实际生效的 subName
+        String subName = vehicleItem.subDefinition.subName;
 
         var builderEntityRl = mcRegistry.createResourceLocation(BUILDER_ENTITY);
         EntityType<?> entityType = mcRegistry.getEntityType(builderEntityRl);
@@ -89,7 +91,7 @@ public class VehicleGenerator {
         data.putString(ENTITY_ID, EntityVehicleF_Physics.class.getSimpleName());
         data.putString(PACK_ID, protocol.packID);
         data.putString(SYSTEM_NAME, protocol.systemName);
-        data.putString(SUB_NAME, protocol.subName);
+        data.putString(SUB_NAME, subName);
         data.putDouble(POSITION_X, spawnPos.x);
         data.putDouble(POSITION_Y, spawnPos.y);
         data.putDouble(POSITION_Z, spawnPos.z);
@@ -99,24 +101,39 @@ public class VehicleGenerator {
             Entity entity = entityType.create(lootContext.serverLevel);
             if (entity == null) {
                 CbraMts.LOGGER.debug("VehicleGenerator: Failed to create vehicle {}:{}:{} at {}",
-                        protocol.packID, protocol.systemName, protocol.subName, spawnOrigin);
+                        protocol.packID, protocol.systemName, subName, spawnOrigin);
                 return;
             }
             entity.load(data);
             entity.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
             if (!lootContext.serverLevel.addFreshEntity(entity)) {
                 CbraMts.LOGGER.debug("VehicleGenerator: Failed to add vehicle {}:{}:{} at {}",
-                        protocol.packID, protocol.systemName, protocol.subName, spawnOrigin);
+                        protocol.packID, protocol.systemName, subName, spawnOrigin);
                 return;
             }
             BattleRoyale.getGameManager().getGameIdWriteApi().addGameId(entity, lootContext.gameId);
         } catch (Exception e) {
             CbraMts.LOGGER.warn("VehicleGenerator: Failed to generate vehicle {}:{}:{} at {}",
-                    protocol.packID, protocol.systemName, protocol.subName, spawnOrigin, e);
+                    protocol.packID, protocol.systemName, subName, spawnOrigin, e);
             return;
         }
 
-        CbraMts.LOGGER.debug("VehicleGenerator::generate {}:{}:{} {}", protocol.packID, protocol.systemName, protocol.subName, spawnOrigin);
+        CbraMts.LOGGER.debug("VehicleGenerator::generate {}:{}:{} {}", protocol.packID, protocol.systemName, subName, spawnOrigin);
+    }
+
+    /**
+     * 候选是协议里的 subName 列表，每次刷新随机取一个；列表为空则用空 subName。
+     * subName 是精确匹配 systemName + subName 的注册键，没有隐式回退。
+     */
+    private static @Nullable ItemVehicle resolveVehicle(VehicleDataProtocol protocol, LootGenerator.LootContext lootContext) {
+        int size = protocol.subNames.size();
+        String subName = "";
+        if (size > 0) {
+            float roll = lootContext.random.get();
+            subName = protocol.subNames.get(Math.min(Math.max((int) (roll * size), 0), size - 1));
+        }
+        AItemPack<?> packItem = PackParser.getItem(protocol.packID, protocol.systemName, subName);
+        return packItem instanceof ItemVehicle vehicle ? vehicle : null;
     }
 
     /**
@@ -131,7 +148,7 @@ public class VehicleGenerator {
         String fuel = protocol.fuel.isEmpty() ? findFuel(vehicleItem, protocol) : protocol.fuel;
         if (fuel.isEmpty()) {
             CbraMts.LOGGER.debug("VehicleGenerator: No fuel resolved for {}:{}:{}",
-                    protocol.packID, protocol.systemName, protocol.subName);
+                    protocol.packID, protocol.systemName, vehicleItem.subDefinition.subName);
             return;
         }
 

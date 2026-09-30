@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import xiao.cbra.mts.CbraMts;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class VehicleDataProtocol {
@@ -18,8 +19,8 @@ public class VehicleDataProtocol {
     // 载具系统名
     public final @NotNull String systemName;
 
-    // 载具子定义名
-    public final @NotNull String subName;
+    // 载具子定义名候选，每次刷新随机取一个；为空则用空 subName
+    public final @NotNull List<String> subNames;
 
     // 指定槽位的部件，键为 part_序号
     public final @NotNull CompoundTag parts;
@@ -35,11 +36,11 @@ public class VehicleDataProtocol {
 
 
     @ApiStatus.Internal
-    public VehicleDataProtocol(@NotNull String packID, @NotNull String systemName, @NotNull String subName,
+    public VehicleDataProtocol(@NotNull String packID, @NotNull String systemName, @NotNull List<String> subNames,
                                @NotNull CompoundTag parts, @NotNull String fuel, double fuelQty, double electricPower) {
         this.packID = packID;
         this.systemName = systemName;
-        this.subName = subName;
+        this.subNames = subNames;
         this.parts = parts;
         this.fuel = fuel;
         this.fuelQty = fuelQty;

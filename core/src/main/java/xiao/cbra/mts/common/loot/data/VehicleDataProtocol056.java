@@ -7,6 +7,8 @@ import xiao.battleroyale.util.JsonUtils;
 import xiao.battleroyale.util.NBTUtils;
 import xiao.cbra.mts.CbraMts;
 
+import java.util.List;
+
 // cbramts:0.5.6
 public class VehicleDataProtocol056 {
 
@@ -16,7 +18,7 @@ public class VehicleDataProtocol056 {
     // 载具系统名
     public static final String SYSTEM_NAME = "systemName";
 
-    // 载具子定义名
+    // 载具子定义名，可取字符串或字符串列表
     public static final String SUB_NAME = "subName";
 
     // 指定槽位的部件，键为 part_序号，值为该部件的NBT字符串
@@ -36,17 +38,29 @@ public class VehicleDataProtocol056 {
         try {
             String packID = JsonUtils.getJsonString(jsonTag, PACK_ID, "");
             String systemName = JsonUtils.getJsonString(jsonTag, SYSTEM_NAME, "");
-            String subName = JsonUtils.getJsonString(jsonTag, SUB_NAME, "");
+            List<String> subNames = getSubNames(jsonTag);
             CompoundTag parts = getParts(jsonTag);
             String fuel = JsonUtils.getJsonString(jsonTag, FUEL, "");
             double fuelQty = JsonUtils.getJsonDouble(jsonTag, FUEL_QTY, 0);
             double electricPower = JsonUtils.getJsonDouble(jsonTag, ELECTRIC_POWER, 0);
 
-            return new VehicleDataProtocol(packID, systemName, subName, parts, fuel, fuelQty, electricPower);
+            return new VehicleDataProtocol(packID, systemName, subNames, parts, fuel, fuelQty, electricPower);
         } catch (Exception e) {
             CbraMts.LOGGER.warn("VehicleDataProtocol056: Failed to parse by cbramts:0.5.6 protocol from jsonTag: {}", jsonTag, e);
             return null;
         }
+    }
+
+    /**
+     * subName 优先按字符串列表读，其次按单个字符串读。
+     */
+    private static @NotNull List<String> getSubNames(@NotNull JsonObject jsonTag) {
+        List<String> subNames = JsonUtils.getJsonStringList(jsonTag, SUB_NAME);
+        if (!subNames.isEmpty()) {
+            return subNames;
+        }
+        String subName = JsonUtils.getJsonString(jsonTag, SUB_NAME, "");
+        return subName.isEmpty() ? List.of() : List.of(subName);
     }
 
     /**

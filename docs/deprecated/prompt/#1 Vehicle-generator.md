@@ -1159,3 +1159,133 @@ private static @NotNull CompoundTag getParts(@NotNull JsonObject jsonTag) {
 ```
 
 上一轮提的两点限制仍然存在（`fuelQty`/`electricPower` 用 `<= 0` 表示未指定、多引擎只取第一个），需要的话再说。
+
+# 
+
+```
+看一下subName在MTS里是否是非必要字段，如果这个配置为空则随机从可选的subName里随机取一个
+```
+
+# 
+
+先看下你改后的 generator，同时查 MTS 里 subName 的语义。
+
+`getItem` 的键是 `systemName + subName`，空 subName 是合法键。再看子定义列表存在哪、以及注册逻辑。
+
+`getItem` 的键是 `systemName + subName` 精确匹配——看看变体信息怎么取。
+
+`subDefinition` 是 public，能直接读到。结论先说：
+
+**`subName` 不是"可选带回退"的字段。** `PackParser.getItem` 是 `packItemMap.get(packID).get(systemName + subName)` 的**精确键匹配**，而注册时每个变体都是 `systemName + subDefinition.subName`。所以空 subName 只有在"包确实注册了一个 subName 为空的变体"时才查得到；像你的 scout/merc230 只定义了 `_black` 这类命名变体，传空就是查不到 → null。
+
+按你说的实现：配置留空时从该载具已注册的变体里随机取一个。
+
+编译通过。README 那句"可为空"现在有歧义了，同步一下。
+
+改完了，编译通过。
+
+## 先回答你的问题：`subName` 不是"可选带回退"的字段
+
+`PackParser.getItem` 是**精确键匹配**：
+
+```java
+return (PackItem) packItemMap.get(packID).get(systemName + subName);
+```
+
+而注册时（`parseAllDefinitions`）每个变体写进 map 的键是：
+
+```java
+packItems.put(item.definition.systemName + subDefinition.subName, item);
+```
+
+所以空 subName 只有在**包确实注册了一个 subName 为空的变体**时才查得到。你的 scout/merc230 只定义了 `_black` 这类命名变体，传空 → `null`。
+
+## 实现
+
+[VehicleGenerator.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java) 加了 `resolveVehicle`：
+
+```java
+private static @Nullable ItemVehicle resolveVehicle(VehicleDataProtocol protocol, LootGenerator.LootContext lootContext) {
+    if (!protocol.subName.isEmpty()) {
+        AItemPack<?> packItem = PackParser.getItem(protocol.packID, protocol.systemName, protocol.subName);
+        return packItem instanceof ItemVehicle vehicle ? vehicle : null;
+    }
+
+    List<ItemVehicle> variants = getVehicleVariants(protocol.packID, protocol.systemName);
+    if (variants.isEmpty()) {
+        return null;
+    }
+    float roll = lootContext.random.get();
+    int index = Math.min(Math.max((int) (roll * variants.size()), 0), variants.size() - 1);
+    return variants.get(index);
+}
+```
+
+变体列表用 `PackParser.getAllItemsForPack(packID, false)` 过滤 `vehicle.definition.systemName` 得到——同一载具的所有子变体共享同一个 `JSONVehicle` 主定义，所以这么筛是准的。随机源用的是 **`lootContext.random`**（刷新上下文自带的 `Supplier<Float>`）而不是 `new Random()`，这样和刷新种子保持一致、可复现。
+
+之后一律用实际生效的 `vehicleItem.subDefinition.subName`：写进 NBT、日志、燃料判定的日志都改了。
+
+README 里 subName 的说明也同步成"留空则从该载具已注册的变体里随机取一个"。
+
+## 一点提醒
+
+**留空就没法精确指定"就用空 subName 的那个变体"了。** 如果某个包同时注册了空 subName 的变体和命名变体，留空会把这些一起纳入随机池；要指定就用精确值。
+
+模板里目前还是 `"_black"`，你要随机变体的话把那行删掉（或留空）即可。
+
+# 
+
+```
+算了，改成subName优先读成字符串列表，其次读成String，不在每次generate的时候都查一遍
+```
+
+# 
+
+`JsonUtils.getJsonStringList` 正好能用，`getJsonArray` 也是带守卫的。改造。
+
+改完了，编译通过，没有残留的旧引用。
+
+## 改动
+
+**解析**（[VehicleDataProtocol056.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol056.java)）—— 优先列表、其次字符串，**在解析阶段一次性读好**：
+
+```java
+private static @NotNull List<String> getSubNames(@NotNull JsonObject jsonTag) {
+    List<String> subNames = JsonUtils.getJsonStringList(jsonTag, SUB_NAME);
+    if (!subNames.isEmpty()) {
+        return subNames;
+    }
+    String subName = JsonUtils.getJsonString(jsonTag, SUB_NAME, "");
+    return subName.isEmpty() ? List.of() : List.of(subName);
+}
+```
+
+`JsonUtils.getJsonStringList` 内部走的是带守卫的 `getJsonArray`（不是数组就返回默认），所以两种写法都能吃：
+
+```json
+"subName": "_black"
+"subName": ["_black", "_red", "_white"]
+```
+
+**协议字段**（[VehicleDataProtocol.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/data/VehicleDataProtocol.java)）从 `String subName` 改成 `List<String> subNames`。
+
+**生成**（[VehicleGenerator.java](D:/Github/CBR-Addon-MTS/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java)）—— 去掉了每次 generate 扫包的那套（`getVehicleVariants` / `getAllItemsForPack`），现在只是在候选列表里取一个：
+
+```java
+private static @Nullable ItemVehicle resolveVehicle(VehicleDataProtocol protocol, LootGenerator.LootContext lootContext) {
+    int size = protocol.subNames.size();
+    String subName = "";
+    if (size > 0) {
+        float roll = lootContext.random.get();
+        subName = protocol.subNames.get(Math.min(Math.max((int) (roll * size), 0), size - 1));
+    }
+    AItemPack<?> packItem = PackParser.getItem(protocol.packID, protocol.systemName, subName);
+    return packItem instanceof ItemVehicle vehicle ? vehicle : null;
+}
+```
+
+列表为空 → `subName = ""`，不再回退去猜。随机仍然用 `lootContext.random`，和刷新种子一致。实际生效的 subName 依旧从 `vehicleItem.subDefinition.subName` 取，写进 NBT 和日志。
+
+README 的 subName 说明也同步成"可取字符串或字符串列表；给列表则每次刷新随机取一个，留空则用空 subName"。
+
+模板里还是 `"_black"`，要随机变体就把那儿改成数组。

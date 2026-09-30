@@ -24,7 +24,7 @@
 
 - packID：载具包ID
 - systemName：载具系统名
-- subName：载具子定义名，可为空
+- subName：载具子定义名，可取字符串或字符串列表；给列表则每次刷新随机取一个，留空则用空 subName
 - parts：可选，按槽位指定部件，键为 part_序号，值为该部件的NBT字符串，留空则用包里的默认部件
 - fuel：可选，燃料流体名；留空则按引擎的燃料类型自动挑选效力最高且实际存在的流体
 - fuelQty：可选，燃料量；留空则按载具配置加满
@@ -79,7 +79,7 @@ Add [Common event loot](https://github.com/XColorful/BattleRoyale/wiki/General-l
 
 - packID: Vehicle pack ID
 - systemName: Vehicle system name
-- subName: Vehicle sub-definition name, may be empty
+- subName: Vehicle sub-definition name, either a string or a list of strings; a list is picked from at random on each spawn, empty means the empty subName
 - parts: Optional, parts for specific slots, keyed by part_<index>, each value an NBT string; empty slots use the pack's default part
 - fuel: Optional, fuel fluid name; if omitted, the most potent available fluid for the engine's fuel type is used
 - fuelQty: Optional, fuel amount; if omitted, filled to the vehicle's capacity
