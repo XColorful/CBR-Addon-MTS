@@ -10,7 +10,7 @@ import xiao.cbra.mts.CbraMts;
 public class CbraMtsNeoforge {
 
     public CbraMtsNeoforge() {
-        Dist dist = FMLLoader.getDist();
+        Dist dist = FMLLoader.getCurrent().getDist();
         McSide mcSide = dist.isClient() ? McSide.CLIENT : McSide.DEDICATED_SERVER;
 
         CbraMts.init(mcSide);
