@@ -1289,3 +1289,102 @@ private static @Nullable ItemVehicle resolveVehicle(VehicleDataProtocol protocol
 README 的 subName 说明也同步成"可取字符串或字符串列表；给列表则每次刷新随机取一个，留空则用空 subName"。
 
 模板里还是 `"_black"`，要随机变体就把那儿改成数组。
+
+# 
+
+```
+1.21.1merge了没问题，完成26.1.x移植，VehicleGenerator需要改，ValueInput可以看我CGC 26.1.x的NBTUtils封装
+```
+
+# 
+
+切到 26.1.x 移植。先看两个仓库的现状。
+
+这是我的疏忽——26.1.x 的 NBT API 变了（`Identifier`、`ValueInput/ValueOutput`、`getString` 返回 Optional）。先看 26.1.x 那边现在是什么状态，同时编译一遍把差异全列出来。
+
+MTS 26.1.x 的 API 和 1.20.1 一致。看编译结果。
+
+编译还在跑（26.1.x 首次要下 NeoForge 并解包）。先查清关键点——你提到 `ValueInput`，说明 26.1.x 里实体的 NBT IO 应该改成 `ValueInput` 了。
+
+MC 26.1.x 的源码就在 CGC 的 build 目录里。查关键签名。
+
+`Entity.load` 已改成 `ValueInput`。看 `TagValueInput` 怎么构造，以及 MTS 26.1.x 的外壳是怎么接的。
+
+MTS 26.1.x 保留了 `lastLoadedNBT` 机制，但 `ABuilderEntityBase` 不再覆写 `load(CompoundTag)`。看 `BuilderEntityExisting` 怎么接的。
+
+`MTS_NBT_KEY` 是 26.1.x 新加的，说明那边的存取方式变了。找 MTS 的 26.1.x 源码。
+
+关键发现：26.1.x 里 MTS 实体数据**嵌在 `mts_entity` 键下**了。确认一下。
+
+确认了：26.1.x 里 MTS 数据嵌在实体的 `mts_entity` 键下（`readAdditionalSaveData` 读它并赋给 `lastLoadedNBT`）。看编译结果。
+
+`Entity.load` 确实会调 `readAdditionalSaveData`。查最后一处 API，然后写移植。
+
+CBR 侧完全没变。停掉后台编译，直接写移植。
+
+CBR 26.1.x 自己的刷实体就是这个写法。看它用哪个 ProblemReporter。
+
+CBR 用的是 `ProblemReporter.DISCARDING` + `EntitySpawnReason.COMMAND`。写 26.1.x 版。
+
+网络问题（Gradle 想重新拉 version manifest）。先确认那个符号错误——我怀疑是 `getAllKeys` 改名了。
+
+`getAllKeys()` 在 26.1.x 已改名为 `keySet()`（CGC 的 NBTUtils 里也是这么用的）。修掉。
+
+编译通过。确认 class 产出。
+
+26.1.x 移植完成，编译通过，7 个 class 全部产出。
+
+## 改动只在 [VehicleGenerator.java](D:/Github/CBR-Addon-MTS-26.1.xneoforge/core/src/main/java/xiao/cbra/mts/common/loot/VehicleGenerator.java)，四个点
+
+**1. MTS 数据要嵌在 `mts_entity` 键下** —— 这是 26.1.x 最重要的行为变化。我从 MTS 的 `mcinterface261.ABuilderEntityBase` 反编译出来的：
+
+```java
+protected void readAdditionalSaveData(ValueInput input) {
+    input.read("mts_entity", CompoundTag.CODEC).ifPresent(tag -> this.lastLoadedNBT = tag);
+}
+```
+
+26.1.x 起 MTS 不再覆写 `load(CompoundTag)` 直接把整个 tag 当 `lastLoadedNBT`，而是从实体 NBT 的 `mts_entity` 子键里取。所以载荷要包一层：
+
+```java
+CompoundTag data = new CompoundTag();
+CompoundTag mtsData = new CompoundTag(); {
+    mtsData.merge(protocol.parts);
+    mtsData.putString(ENTITY_ID, ...);
+    ...
+    applyPower(mtsData, vehicleItem, protocol);
+}
+data.put(MTS_NBT_KEY, mtsData);   // MTS_NBT_KEY = "mts_entity"
+```
+
+`MTS_NBT_KEY` 在 MTS 里是 `protected`，拿不到，只能在 addon 里硬编码常量。
+
+**2. `Entity.load` 改成吃 `ValueInput`**，照 CBR 26.1.x 自己刷实体的写法：
+
+```java
+Entity entity = entityType.create(lootContext.serverLevel, EntitySpawnReason.COMMAND);
+ValueInput input = TagValueInput.create(ProblemReporter.DISCARDING,
+        lootContext.serverLevel.registryAccess(), data);
+entity.load(input);
+```
+
+`EntityType.create(Level)` 单参重载没了，必须带 `EntitySpawnReason`；`ProblemReporter.DISCARDING` 和 `EntitySpawnReason.COMMAND` 都是 CBR 那边用的同一个选择（反编译 `EntityData.getEntity` 确认的）。
+
+**3. NBT 取值改 Optional** —— 按你 CGC `NBTUtils` 里那套写法：
+
+```java
+CompoundTag partData = protocol.parts.getCompound(partKey).orElse(null);
+...partData.getString(PACK_ID).orElse("")
+```
+
+**4. `getAllKeys()` → `keySet()`** —— 这个是编译报错暴露的，`CompoundTag` 里方法改名了（你 CGC 的 NBTUtils 用的也是 `keySet()`）。
+
+## 没要改的
+
+`createResourceLocation` 的返回类型从 `ResourceLocation` 变成了 `Identifier`，但因为当初按你说的左值用 `var`，这行**零改动**。
+
+`VehicleDataProtocol` / `VehicleDataProtocol056` / `VehicleGeneratorManager` / `CustomEventHandler` / `CbraMts` 都没动 —— 它们不碰 MC 的 NBT API。README 是从 1.20.1 合并过来的，内容本来就已经是新字段的版本，也不用改。
+
+## 一点提醒
+
+这次编译是加了 `--offline` 才过的——不带的话 Gradle 会在 configure 阶段去 `piston-meta.mojang.com` 拉 version manifest 然后失败（网络被挡）。第一次成功那次是缓存在。你本地正常联网的话应该没这个问题。
