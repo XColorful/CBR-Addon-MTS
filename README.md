@@ -109,3 +109,107 @@ Add [Common event loot](https://github.com/XColorful/BattleRoyale/wiki/General-l
 ## License
 
 - Code: [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# Example config
+
+```json
+[
+  {
+    "lootId": 0,
+    "default": true,
+    "name": "Immersive vehicles",
+    "color": "#FFFFFFAA",
+    "entry": {
+      "lootType": "random",
+      "chance": 0.8,
+      "entry": {
+        "lootType": "weight",
+        "entries": [
+          {
+            "weight": 35.0,
+            "entry": {
+              "lootType": "event",
+              "protocol": "cbramts:0.5.6",
+              "jsonTag": {
+                "packID": "mtsofficialpack",
+                "systemName": "scout",
+                "subName": [
+                  "_blue",
+                  "_yellow",
+                  "_white",
+                  "_red",
+                  "_olive",
+                  "_black",
+                  "_gray",
+                  "_gold",
+                  "_tan",
+                  "_orange",
+                  "_brown",
+                  "_yellowwhite",
+                  "_seagreen",
+                  "_maroon"
+                ],
+                "parts": {
+                  "part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_1": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_2": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_3": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_4": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_5": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_7": "{packID:\"mtsofficialpack\",systemName:\"scoutbedpickup\",subName:\"\"}",
+                  "part_8": "{packID:\"mtsofficialpack\",systemName:\"engineamci4\",subName:\"\"}",
+                  "part_10": "{packID:\"mtsofficialpack\",systemName:\"bumpersticker\",subName:\"_roostair\"}",
+                  "part_15": "{packID:\"mtsofficialpack\",systemName:\"gloveboxscout\",subName:\"\"}"
+                }
+              }
+            }
+          },
+          {
+            "weight": 15.0,
+            "entry": {
+              "lootType": "event",
+              "protocol": "cbramts:0.5.6",
+              "jsonTag": {
+                "packID": "mtsofficialpack",
+                "systemName": "merc230",
+                "subName": [
+                  "_blue",
+                  "_white",
+                  "_seagreen",
+                  "_maroon",
+                  "_brown",
+                  "_green",
+                  "_police",
+                  "_police2",
+                  "_black",
+                  "_red",
+                  "_gray",
+                  "_extravagant",
+                  "_olive",
+                  "_beige",
+                  "_silver",
+                  "_yellow",
+                  "_salmon"
+                ],
+                "parts": {
+                  "part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_1": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_2": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_3": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_4": "{packID:\"mtsofficialpack\",systemName:\"enginemercedesm102\",subName:\"\"}",
+                  "part_5": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_6": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_7": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_8": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_9": "{packID:\"mts\",systemName:\"invisible_standing\",subName:\"\"}",
+                  "part_11": "{packID:\"mtsofficialpack\",systemName:\"gloveboxscout\",subName:\"\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+]
+```
