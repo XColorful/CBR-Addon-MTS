@@ -32,6 +32,8 @@ public class VehicleGenerator {
 
     // MTS 载具的外壳实体
     private static final String BUILDER_ENTITY = "mts:builder_existing";
+    // 26.1.x MTS 内部实体的数据嵌在外壳实体NBT的这个键下（ABuilderEntityBase#readAdditionalSaveData）
+    private static final String MTS_NBT_KEY = "mts_entity";
 
     public static final String ENTITY_ID = "entityid";
     public static final String PACK_ID = "packID";
@@ -85,17 +87,20 @@ public class VehicleGenerator {
 
         // 载具内部坐标只认 NBT 的 positionx/y/z，外部 setPos 每tick都会被它反写覆盖，
         // 所以落点必须在这里写进 NBT
-        CompoundTag data = new CompoundTag();
-        // 先铺协议指定的部件，载具自身字段后写，避免被部件数据覆盖
-        data.merge(protocol.parts);
-        data.putString(ENTITY_ID, EntityVehicleF_Physics.class.getSimpleName());
-        data.putString(PACK_ID, protocol.packID);
-        data.putString(SYSTEM_NAME, protocol.systemName);
-        data.putString(SUB_NAME, subName);
-        data.putDouble(POSITION_X, spawnPos.x);
-        data.putDouble(POSITION_Y, spawnPos.y);
-        data.putDouble(POSITION_Z, spawnPos.z);
-        applyPower(data, vehicleItem, protocol);
+        CompoundTag data;
+        CompoundTag mtsData = new CompoundTag(); {
+            // 先铺协议指定的部件，载具自身字段后写，避免被部件数据覆盖
+            mtsData.merge(protocol.parts);
+            mtsData.putString(ENTITY_ID, EntityVehicleF_Physics.class.getSimpleName());
+            mtsData.putString(PACK_ID, protocol.packID);
+            mtsData.putString(SYSTEM_NAME, protocol.systemName);
+            mtsData.putString(SUB_NAME, subName);
+            mtsData.putDouble(POSITION_X, spawnPos.x);
+            mtsData.putDouble(POSITION_Y, spawnPos.y);
+            mtsData.putDouble(POSITION_Z, spawnPos.z);
+            applyPower(mtsData, vehicleItem, protocol);
+        }
+        data = mtsData; // data.put(MTS_NBT_KEY, mtsData);
 
         try {
             Entity entity = entityType.create(lootContext.serverLevel);
