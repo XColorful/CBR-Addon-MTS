@@ -4,6 +4,9 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "cbramts.refmap.json",
   "mixins": [
+    "BoundingBoxMixin",
+    "EntityTypeAccessor",
+    "LegacyCompatSystemMixin"
   ],
   "injectors": {
     "defaultRequire": 1
