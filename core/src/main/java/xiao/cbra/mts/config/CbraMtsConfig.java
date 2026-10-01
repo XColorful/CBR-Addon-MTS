@@ -31,6 +31,7 @@ public final class CbraMtsConfig {
     private static final int DEFAULT_RENDER_DISTANCE = 32;
     private static final boolean DEFAULT_MODIFY_VEHICLE_SOUND_DISTANCE = true;
     private static final int DEFAULT_VEHICLE_SOUND_DISTANCE = 20;
+    private static final boolean DEFAULT_VEHICLE_DROP_ON_DESTROY = true;
     private static final double DEFAULT_VEHICLE_CRASH_DESTROY_SPEED = 150.0D;
     private static final double DEFAULT_VEHICLE_DESTRUCTION_DAMAGE_SCALE = 0.65D;
 
@@ -105,6 +106,13 @@ public final class CbraMtsConfig {
     public static int vehicleSoundDistance = DEFAULT_VEHICLE_SOUND_DISTANCE;
 
     /**
+     * 载具被摧毁时是否把部件（轮胎、引擎等）和已装仪器掉落到世界里。
+     * <p>
+     * 置 {@code false} 时载具只做爆炸和消失，不再散落任何物品。乘客的摔伤、爆炸本身不受影响。
+     */
+    public static boolean vehicleDropOnDestroy = DEFAULT_VEHICLE_DROP_ON_DESTROY;
+
+    /**
      * 允许直接摧毁载具的速度下限，单位为 km/h，0 表示不提高。
      * <p>
      * 车包每辆车已经有一个 {@code crashSpeedDestroyed}，实际行驶速度超过它才会一撞即毁。
@@ -169,6 +177,7 @@ public final class CbraMtsConfig {
         modifyVehicleSoundDistance = JsonUtils.getJsonBool(jsonObject, CbraMtsConfigTag.MODIFY_VEHICLE_SOUND_DISTANCE, DEFAULT_MODIFY_VEHICLE_SOUND_DISTANCE);
         vehicleSoundDistance = Math.max(MIN_VEHICLE_SOUND_DISTANCE,
                 JsonUtils.getJsonInt(jsonObject, CbraMtsConfigTag.VEHICLE_SOUND_DISTANCE, DEFAULT_VEHICLE_SOUND_DISTANCE));
+        vehicleDropOnDestroy = JsonUtils.getJsonBool(jsonObject, CbraMtsConfigTag.VEHICLE_DROP_ON_DESTROY, DEFAULT_VEHICLE_DROP_ON_DESTROY);
         vehicleCrashDestroySpeed = Math.max(MIN_VEHICLE_CRASH_DESTROY_SPEED,
                 JsonUtils.getJsonDouble(jsonObject, CbraMtsConfigTag.VEHICLE_CRASH_DESTROY_SPEED, DEFAULT_VEHICLE_CRASH_DESTROY_SPEED));
         vehicleDestructionDamageScale = Math.max(MIN_VEHICLE_DESTRUCTION_DAMAGE_SCALE,
@@ -186,6 +195,7 @@ public final class CbraMtsConfig {
         jsonObject.addProperty(CbraMtsConfigTag.RENDER_DISTANCE, renderDistance);
         jsonObject.addProperty(CbraMtsConfigTag.MODIFY_VEHICLE_SOUND_DISTANCE, modifyVehicleSoundDistance);
         jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_SOUND_DISTANCE, vehicleSoundDistance);
+        jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_DROP_ON_DESTROY, vehicleDropOnDestroy);
         jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_CRASH_DESTROY_SPEED, vehicleCrashDestroySpeed);
         jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_DESTRUCTION_DAMAGE_SCALE, vehicleDestructionDamageScale);
 

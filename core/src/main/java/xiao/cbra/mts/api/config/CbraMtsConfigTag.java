@@ -45,5 +45,10 @@ public class CbraMtsConfigTag {
      */
     public static final String VEHICLE_DESTRUCTION_DAMAGE_SCALE = "vehicleDestructionDamageScale";
 
+    /**
+     * 载具被摧毁时是否掉落部件与仪器
+     */
+    public static final String VEHICLE_DROP_ON_DESTROY = "vehicleDropOnDestroy";
+
     private CbraMtsConfigTag() {}
 }

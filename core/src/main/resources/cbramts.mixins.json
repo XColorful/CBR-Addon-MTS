@@ -5,7 +5,9 @@
   "refmap": "cbramts.refmap.json",
   "mixins": [
     "AEntityVehicleC_CollidingAccessor",
+    "AEntityVehicleC_CollidingMixin",
     "AEntityVehicleD_MovingMixin",
+    "AEntityVehicleE_PoweredMixin",
     "BoundingBoxMixin",
     "EntityTypeAccessor",
     "LegacyCompatSystemMixin"

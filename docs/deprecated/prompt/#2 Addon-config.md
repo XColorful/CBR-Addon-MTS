@@ -185,6 +185,7 @@ Diff 没问题。关键验证：本项目实际编译依赖的是 Curse 上的 M
 # 
 
 [fork1](#fork1)
+[fork2](#fork2)
 
 # fork1
 
@@ -608,3 +609,64 @@ attack on EntityVehicleF_Physics@f932470 amount=1507.51 current=0.0
 | `vehicleDestructionDamageScale` | 0.65 | 0.65 |
 
 之前提过的那个副作用仍然存在：伤害缩小后，`damage >= 血量上限` 那条分支（"直接摧毁"就嵌在里面）在任何现实速度下都进不去了，所以 **`vehicleCrashDestroySpeed` 实际上不生效**。你要是想让高速撞击仍然能摧毁、只是门槛由它决定，说一声我把摧毁判断挪到分支外面。
+
+# fork2
+
+```
+加一个config，使得载具摧毁后不掉落东西，如轮胎、引擎什么的
+```
+
+# 
+
+用户新增了两个 tag（`vehicleCrashDestroySpeed` / `vehicleDestructionDamageScale`），我先不动它们。当前任务：载具摧毁后不掉落部件。先查 MTS 的摧毁/掉落路径。
+
+找到关键路径了：`AEntityVehicleC_Colliding` 里有一个 `drops.forEach(... spawnItemStack ...)`。读一下。
+
+载具摧毁的掉落有**两处**：`AEntityVehicleE_Powered.destroy`（仪器）和 `AEntityVehicleC_Colliding.destroy`（部件/轮胎/引擎）。按新记的教训，对着实际依赖 jar 的字节码确认注入点。
+
+字节码确认了两处掉落点。再确认整条 `destroy` 链上有没有别的掉落。
+
+`AEntityVehicleC_Colliding` 看着是包级私有，那 `@Mixin(X.class)` 就引用不到，得用 `targets` 字符串。确认 class 可见性。
+
+包级私有确认了，`AEntityVehicleC_Colliding` 得用 `targets` 字符串。开始写。
+
+磁盘上有并行改动（多了 `AEntityVehicleC_CollidingAccessor` 和 `AEntityVehicleD_MovingMixin`）。我先看清现状再合并，避免冲突。
+
+并行会话已经把我之前的工作提交了，并新增了 crash/摧毁伤害 那部分。看一下提交历史和他们的新文件，避免撞车。
+
+并行会话实现了 crash/摧毁伤害那部分，并引用了 `vehicleHealthScale`。我确认自己的编辑没覆盖掉他们的字段。
+
+编译通过。看一下并行会话是否已经更新了 README 的配置章节。
+
+加好了。
+
+## 新配置
+
+`vehicleDropOnDestroy`，boolean，默认 `true`；置 `false` 后载具被摧毁时不再散落任何物品。
+
+## 掉落有**两处**，都拦掉了
+
+查下来载具摧毁的掉落不在一个地方，且分属两个类：
+
+| 掉什么 | 位置 | 拦法 |
+|---|---|---|
+| 轮胎、引擎等部件 | `AEntityVehicleC_Colliding.destroy` → 把非永久部件收进列表后 `drops.forEach(spawnItemStack)` | [AEntityVehicleC_CollidingMixin.java](core/src/main/java/xiao/cbra/mts/mixin/AEntityVehicleC_CollidingMixin.java) 重定向那次 `List.forEach` |
+| 已装的仪器（枪、收音机等） | `AEntityVehicleE_Powered.destroy` → 循环里直接 `spawnItemStack` | [AEntityVehicleE_PoweredMixin.java](core/src/main/java/xiao/cbra/mts/mixin/AEntityVehicleE_PoweredMixin.java) 重定向 `spawnItemStack` |
+
+这两个类不是一条继承链上的同一次调用：`EntityVehicleF_Physics → E_Powered → D_Moving → C_Colliding`，`destroy` 每层各掉各的，所以必须两处都拦。`AEntityB_Existing.destroy`（最底层）只 `remove()`，`APart.destroy` 只 `removePart()`,都不掉东西。
+
+**没被影响的**：乘客摔伤（掉东西之前就结算完了）、爆炸本身、以及部件被单独打爆时的移除逻辑。
+
+`AEntityVehicleC_Colliding` 是包级私有类，所以那个 mixin 用 `@Mixin(targets = "...")` 字符串引用而不是 class 字面量。
+
+## 两件事说明
+
+**1. 仪器也一起拦了。** 你说的是"不掉落东西，如轮胎、引擎什么的"，我把仪器也算进"东西"了。如果你希望仪器照掉（比如 BR 里想让枪还能捡），把第二个 mixin 删掉即可。
+
+**2. 我发现了并行会话的改动。** 磁盘上已有 `vehicleCrashDestroySpeed` / `vehicleDestructionDamageScale` 的实现（`AEntityVehicleC_CollidingAccessor` + `AEntityVehicleD_MovingMixin`），并且已提交。我的编辑是叠加在它之上的：读 `git status` / 逐项核对过，双方在 `CbraMtsConfig`、config tag、`mixins.json` 里都没互相覆盖，`_write` 里两组键的顺序也是连贯的。
+
+## 验证
+
+按记忆里那条教训，注入点是对**实际编译依赖的 MTS jar** 反汇编核过的：`AEntityVehicleC_Colliding.destroy` 尾部确实是 `invokedynamic` + `invokeinterface java/util/List.forEach`，`AEntityVehicleE_Powered.destroy` 里 `AWrapperWorld.spawnItemStack` 只有一处。两个 mixin 的描述符与字节码逐字一致，`:forge-compat:build` 通过，7 个 mixin class + refmap 都进了 jar。
+
+仍然**没跑过游戏** —— checkouts 下没有 `run/` 目录，MTS / BattleRoyale / 车包都没装。运行时的 mixin 挂载没实测过。
