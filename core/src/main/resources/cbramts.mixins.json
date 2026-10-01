@@ -4,6 +4,9 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "cbramts.refmap.json",
   "mixins": [
+    "AEntityE_InteractableMixin",
+    "AEntityVehicleC_CollidingAccessor",
+    "AEntityVehicleD_MovingMixin",
     "BoundingBoxMixin",
     "EntityTypeAccessor",
     "LegacyCompatSystemMixin"

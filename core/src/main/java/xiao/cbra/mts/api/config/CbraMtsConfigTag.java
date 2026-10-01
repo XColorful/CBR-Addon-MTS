@@ -35,5 +35,15 @@ public class CbraMtsConfigTag {
      */
     public static final String VEHICLE_SOUND_DISTANCE = "vehicleSoundDistance";
 
+    /**
+     * 允许直接摧毁载具的速度下限，单位为 km/h
+     */
+    public static final String VEHICLE_CRASH_DESTROY_SPEED = "vehicleCrashDestroySpeed";
+
+    /**
+     * 碰撞摧毁伤害的系数
+     */
+    public static final String VEHICLE_DESTRUCTION_DAMAGE_SCALE = "vehicleDestructionDamageScale";
+
     private CbraMtsConfigTag() {}
 }

@@ -31,6 +31,8 @@ public final class CbraMtsConfig {
     private static final int DEFAULT_RENDER_DISTANCE = 32;
     private static final boolean DEFAULT_MODIFY_VEHICLE_SOUND_DISTANCE = true;
     private static final int DEFAULT_VEHICLE_SOUND_DISTANCE = 20;
+    private static final double DEFAULT_VEHICLE_CRASH_DESTROY_SPEED = 150.0D;
+    private static final double DEFAULT_VEHICLE_DESTRUCTION_DAMAGE_SCALE = 0.65D;
 
     /**
      * 生命上限缩放比例下限，0 表示把上限压到最低值 1
@@ -46,6 +48,16 @@ public final class CbraMtsConfig {
      * 音效传播距离下限（区块）
      */
     private static final int MIN_VEHICLE_SOUND_DISTANCE = 1;
+
+    /**
+     * 摧毁速度下限（km/h），0 表示不提高
+     */
+    private static final double MIN_VEHICLE_CRASH_DESTROY_SPEED = 0.0D;
+
+    /**
+     * 碰撞伤害系数下限
+     */
+    private static final double MIN_VEHICLE_DESTRUCTION_DAMAGE_SCALE = 0.0D;
 
     // --------配置项--------
 
@@ -92,6 +104,31 @@ public final class CbraMtsConfig {
      */
     public static int vehicleSoundDistance = DEFAULT_VEHICLE_SOUND_DISTANCE;
 
+    /**
+     * 允许直接摧毁载具的速度下限，单位为 km/h，0 表示不提高。
+     * <p>
+     * 车包每辆车已经有一个 {@code crashSpeedDestroyed}，实际行驶速度超过它才会一撞即毁。
+     * 本项把该下限抬到"车包值"和"本值"里较高的那个，所以只有提高、不会降低，填 0 等价于关掉。
+     * 默认 150 是为了盖过官方车包现役车辆的最高速（scout 约 75km/h、merc230 约 104km/h），
+     * 让它们不论怎么撞都不会被"直接摧毁"，只掉血。
+     * 只作用于定义了 {@code crashSpeedMax} 的车，走硬度分支的车（如 ft17）不受影响。
+     */
+    public static double vehicleCrashDestroySpeed = DEFAULT_VEHICLE_CRASH_DESTROY_SPEED;
+
+    /**
+     * 碰撞摧毁伤害的系数，决定"以车包原始血量为基准"撞一次扣多少。
+     * <p>
+     * MTS 算的是 {@code 血量上限 × 速度曲线比例}，而"血量上限"已经被 {@link #vehicleHealthScale} 放大过，
+     * 所以这里会把 {@link #vehicleHealthScale} 除掉再乘，让撞击伤害不受血量缩放影响 ——
+     * 否则拉高血量上限会让撞击伤害同步变大，血量白加，撞几次照样报废。
+     * 结果是：100km/h 撞击扣掉 {@code 该车原始血量 × 1.0} 左右，能扛的撞击次数正好等于 {@link #vehicleHealthScale}。
+     * <p>
+     * 默认 0.65 是按官方车包的碰撞曲线反推的：车包 {@code crashSpeedMin} 10、{@code crashSpeedMax} 55，
+     * 配合默认 {@code carSpeedFactor} 0.35，100km/h 处曲线比例是 1.5414，取倒数即 0.649。
+     * 注意它跟着服务端的 {@code carSpeedFactor} 走，改过该值的话对应的速度也会变。
+     */
+    public static double vehicleDestructionDamageScale = DEFAULT_VEHICLE_DESTRUCTION_DAMAGE_SCALE;
+
     private CbraMtsConfig() {
     }
 
@@ -117,6 +154,9 @@ public final class CbraMtsConfig {
         }
 
         _write(configFile);
+
+        CbraMts.LOGGER.info("[cbramts-debug] config loaded: healthScale={} destructionDamageScale={} crashDestroySpeed={}",
+                vehicleHealthScale, vehicleDestructionDamageScale, vehicleCrashDestroySpeed);
     }
 
     /**
@@ -132,6 +172,10 @@ public final class CbraMtsConfig {
         modifyVehicleSoundDistance = JsonUtils.getJsonBool(jsonObject, CbraMtsConfigTag.MODIFY_VEHICLE_SOUND_DISTANCE, DEFAULT_MODIFY_VEHICLE_SOUND_DISTANCE);
         vehicleSoundDistance = Math.max(MIN_VEHICLE_SOUND_DISTANCE,
                 JsonUtils.getJsonInt(jsonObject, CbraMtsConfigTag.VEHICLE_SOUND_DISTANCE, DEFAULT_VEHICLE_SOUND_DISTANCE));
+        vehicleCrashDestroySpeed = Math.max(MIN_VEHICLE_CRASH_DESTROY_SPEED,
+                JsonUtils.getJsonDouble(jsonObject, CbraMtsConfigTag.VEHICLE_CRASH_DESTROY_SPEED, DEFAULT_VEHICLE_CRASH_DESTROY_SPEED));
+        vehicleDestructionDamageScale = Math.max(MIN_VEHICLE_DESTRUCTION_DAMAGE_SCALE,
+                JsonUtils.getJsonDouble(jsonObject, CbraMtsConfigTag.VEHICLE_DESTRUCTION_DAMAGE_SCALE, DEFAULT_VEHICLE_DESTRUCTION_DAMAGE_SCALE));
     }
 
     /**
@@ -145,6 +189,8 @@ public final class CbraMtsConfig {
         jsonObject.addProperty(CbraMtsConfigTag.RENDER_DISTANCE, renderDistance);
         jsonObject.addProperty(CbraMtsConfigTag.MODIFY_VEHICLE_SOUND_DISTANCE, modifyVehicleSoundDistance);
         jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_SOUND_DISTANCE, vehicleSoundDistance);
+        jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_CRASH_DESTROY_SPEED, vehicleCrashDestroySpeed);
+        jsonObject.addProperty(CbraMtsConfigTag.VEHICLE_DESTRUCTION_DAMAGE_SCALE, vehicleDestructionDamageScale);
 
         try {
             Path parent = configFile.getParent();

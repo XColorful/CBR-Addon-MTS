@@ -55,6 +55,8 @@
 - renderDistance：载具的可见范围，单位为区块，默认 `32`（MTS 原值）
 - modifyVehicleSoundDistance：是否修改引擎音效的传播距离，默认 `true`
 - vehicleSoundDistance：引擎音效的传播距离，单位为区块，默认 `20`；只作用于引擎部件，衰减曲线的形状按比例保留
+- vehicleCrashDestroySpeed：允许直接摧毁载具的速度下限，单位为 km/h，默认 `150`。只作用于定义了 `crashSpeedMax` 的车，走硬度分支的车（如 ft17）不受影响
+- vehicleDestructionDamageScale：碰撞摧毁伤害的系数，默认 `0.65`，以车包原始血量为基准
 
 生命上限与引擎音效距离在车包加载时改写，改动后需重进世界或重载资源包。
 
@@ -123,6 +125,8 @@ The config file is `config/cbramts.json`, read locally by the server and each cl
 - renderDistance: Vehicle render distance, in chunks, default `32` (the MTS value)
 - modifyVehicleSoundDistance: Whether to modify the engine sound travel distance, default `true`
 - vehicleSoundDistance: Engine sound travel distance, in chunks, default `20`; applies to engine parts only, the attenuation curve shape is preserved
+- vehicleCrashDestroySpeed: Speed floor for direct vehicle destruction, in km/h, default `150`. Applies to vehicles that define `crashSpeedMax` only, so vehicles on the hardness branch (e.g. ft17) are unaffected
+- vehicleDestructionDamageScale: Multiplier for crash destruction damage, default `0.65`, relative to the pack's original health.
 
 Max health and engine sound distance are rewritten while vehicle packs load, so a world re-entry or resource reload is needed after changing them.
 
