@@ -38,5 +38,5 @@ side="BOTH"
 modId="mts"
 mandatory=true
 versionRange="${mts_version_range}"
-ordering="AFTER"
+ordering="BEFORE"
 side="BOTH"
