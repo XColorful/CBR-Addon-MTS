@@ -1,8 +1,15 @@
 plugins {
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+mixin { // 绑定Mixin编译阶段的refmap
+    add sourceSets.main, "cbramts.refmap.json"
+}
+// 合并core模块的资源与编译逻辑链到当前模块的主流水线
+sourceSets.main.java.srcDirs += project(':core').sourceSets.main.java.srcDirs // 会额外编译一次core
 
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
@@ -74,6 +81,8 @@ dependencies {
 
     implementation project(":core")
 
+    annotationProcessor "${mixin_annotation}"
+
     compileOnly fg.deobf(battleroyale_curse_maven)
     compileOnly fg.deobf(mts_curse_maven)
 }
@@ -84,6 +93,14 @@ tasks.named('jar', Jar).configure {
     archiveClassifier.set("${forge_id}-${minecraft_version}")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from project(':core').sourceSets.main.output
+
+    manifest {
+        attributes([
+                "Implementation-Title"    : mod_name,
+                "Implementation-Version"  : mod_version,
+                "MixinConfigs"            : mixin_config_file
+        ])
+    }
 }
 
 tasks.matching { it.name == 'remapJar' || it.name == 'reobfJar' }.configureEach {
