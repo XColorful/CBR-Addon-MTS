@@ -3,8 +3,6 @@ package xiao.cbra.mts.common;
 import minecrafttransportsimulator.jsondefs.AJSONItem;
 import minecrafttransportsimulator.jsondefs.JSONPart;
 import minecrafttransportsimulator.jsondefs.JSONSound;
-import minecrafttransportsimulator.jsondefs.JSONVehicle;
-import xiao.cbra.mts.CbraMts;
 import xiao.cbra.mts.config.CbraMtsConfig;
 
 import java.util.Map;
@@ -53,10 +51,6 @@ public final class VehicleScaling {
         if (originalHealth <= 0) return;
 
         item.general.health = (int) Math.max(1L, Math.round(originalHealth * CbraMtsConfig.vehicleHealthScale));
-        if (item instanceof JSONVehicle) {
-            CbraMts.LOGGER.info("[cbramts-debug] health {} {} -> {} (scale={})",
-                    item.packID, item.systemName, item.general.health, CbraMtsConfig.vehicleHealthScale);
-        }
     }
 
     /**

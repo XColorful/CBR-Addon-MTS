@@ -7,7 +7,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import xiao.cbra.mts.CbraMts;
 import xiao.cbra.mts.config.CbraMtsConfig;
 
 /**
@@ -40,18 +39,13 @@ public abstract class AEntityVehicleD_MovingMixin {
             remap = false)
     private float cbramts$raiseCrashDestroySpeed(VehicleMotorized motorized) {
         float destroySpeed = motorized.crashSpeedDestroyed;
-        // scaledVelocity = 实际速度(m/s) / speedFactor，所以 km/h 的门槛要除回来
-        double speedFactor = ((AEntityVehicleC_CollidingAccessor) this).cbramts$getSpeedFactor();
         if (CbraMtsConfig.vehicleCrashDestroySpeed <= 0) {
-            CbraMts.LOGGER.info("[cbramts-debug] destroySpeed on {}: pack={} effective={} (config off)",
-                    this.getClass().getSimpleName(), destroySpeed, destroySpeed);
             return destroySpeed;
         }
+        // scaledVelocity = 实际速度(m/s) / speedFactor，所以 km/h 的门槛要除回来
+        double speedFactor = ((AEntityVehicleC_CollidingAccessor) this).cbramts$getSpeedFactor();
         double configuredSpeed = CbraMtsConfig.vehicleCrashDestroySpeed / (speedFactor * KILOMETERS_PER_HOUR_PER_METER_PER_SECOND);
-        float effective = (float) Math.max(destroySpeed, configuredSpeed);
-        CbraMts.LOGGER.info("[cbramts-debug] destroySpeed on {}: pack={} config={}km/h speedFactor={} -> ref={} effective={}",
-                this.getClass().getSimpleName(), destroySpeed, CbraMtsConfig.vehicleCrashDestroySpeed, speedFactor, configuredSpeed, effective);
-        return effective;
+        return (float) Math.max(destroySpeed, configuredSpeed);
     }
 
     /**
@@ -76,20 +70,13 @@ public abstract class AEntityVehicleD_MovingMixin {
                     ordinal = 1, remap = false),
             index = 0, remap = false)
     private double cbramts$scaleCrashDamageArg(double damage) {
-        double result = damage * cbramts$damageMultiplier();
-        CbraMts.LOGGER.info("[cbramts-debug] crashDamageArg on {}: raw={} -> {}",
-                this.getClass().getSimpleName(), damage, result);
-        return result;
+        return damage * cbramts$damageMultiplier();
     }
 
     @ModifyVariable(method = "correctCollidingMovement",
             at = @At("STORE"), name = "damage", remap = false)
     private double cbramts$scaleCrashDamage(double damage) {
-        double result = damage * cbramts$damageMultiplier();
-        CbraMts.LOGGER.info("[cbramts-debug] crashDamage on {}: raw={} damageScale={} healthScale={} -> {}",
-                this.getClass().getSimpleName(), damage, CbraMtsConfig.vehicleDestructionDamageScale,
-                CbraMtsConfig.vehicleHealthScale, result);
-        return result;
+        return damage * cbramts$damageMultiplier();
     }
 
     /**

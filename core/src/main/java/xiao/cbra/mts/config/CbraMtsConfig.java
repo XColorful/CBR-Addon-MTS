@@ -154,9 +154,6 @@ public final class CbraMtsConfig {
         }
 
         _write(configFile);
-
-        CbraMts.LOGGER.info("[cbramts-debug] config loaded: healthScale={} destructionDamageScale={} crashDestroySpeed={}",
-                vehicleHealthScale, vehicleDestructionDamageScale, vehicleCrashDestroySpeed);
     }
 
     /**

@@ -184,6 +184,10 @@ Diff 没问题。关键验证：本项目实际编译依赖的是 Curse 上的 M
 
 # 
 
+[fork1](#fork1)
+
+# fork1
+
 ```
 加两个config：
 vehicleCrashDestroySpeed：用来提高载具摧毁速度的下限，实际行驶速度要超过这个值才允许直接摧毁；由于是提高下限，设置成0的时候应该等价于关掉
@@ -568,3 +572,39 @@ attack on EntityVehicleF_Physics@f932470 amount=1507.51 current=0.0
 伤害缩小之后，`damage >= 血量上限` 这个"扣满一条"的分支在任何现实速度下都不会进入了（需要 ~886km/h），而 MTS 的"直接摧毁"是**嵌在这个分支里面**的。所以 **`vehicleCrashDestroySpeed` 现在实际上不会生效了** —— 撞击只会掉血，永远不会直接摧毁。
 
 如果你希望"高速撞击仍然能摧毁、只是门槛由 vehicleCrashDestroySpeed 决定"，那得把摧毁判断从那个分支里挪出来，这是另一个改法，你要的话我加。
+
+# 
+
+```
+可以了，把日志清掉
+```
+
+# 
+
+日志清掉。先改 mixin。
+
+只剩 `docs/deprecated/prompt/#2 Addon-config.md`（你自己那份对话记录）里有，源码里已清干净。编译验证。
+
+日志已清干净，构建通过。顺手把这次踩的坑记进 memory，免得下次重犯。
+
+日志已全部清掉，构建通过。
+
+## 清理内容
+
+- **删掉** [AEntityE_InteractableMixin.java](core/src/main/java/xiao/cbra/mts/mixin/AEntityE_InteractableMixin.java)（那个记录每次伤害施加的诊断 mixin），并从 `cbramts.mixins.json` 移除。现在 jar 里是 5 个 mixin class。
+- **移除** 撞击 mixin 里两个 handler 的 log，以及 `CbraMts` import（顺带把 redirect 里 `speedFactor` 的取值挪回配置判断之后，避免关掉配置时白取一次）。
+- **移除** `CbraMtsConfig.load` 的配置摘要 log 和 `VehicleScaling.applyHealthScale` 的载具血量 log，连带那两个只为打日志加的 import。
+
+功能逻辑一行没动：`@ModifyVariable`（判断阈值）+ `@ModifyArg`（else 分支扣血，`ordinal = 1`）+ `@Rewrite` 摧毁门槛三个注入都还在。
+
+另外记了一条 memory：**给 MTS 写 mixin 要先 `javap -c` 看 jar 的真实字节码，别只读源码工作副本** —— 这次的 else 分支内联重算就是这么踩到的。
+
+## 当前配置状态（`config/cbramts.json`）
+
+| 键 | 默认 | 现状 |
+|---|---|---|
+| `vehicleHealthScale` | 1.0 | 你设的 10.0 |
+| `vehicleCrashDestroySpeed` | 150 | 150 |
+| `vehicleDestructionDamageScale` | 0.65 | 0.65 |
+
+之前提过的那个副作用仍然存在：伤害缩小后，`damage >= 血量上限` 那条分支（"直接摧毁"就嵌在里面）在任何现实速度下都进不去了，所以 **`vehicleCrashDestroySpeed` 实际上不生效**。你要是想让高速撞击仍然能摧毁、只是门槛由它决定，说一声我把摧毁判断挪到分支外面。
