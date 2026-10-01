@@ -1,4 +1,4 @@
-package xiao.cbra.mts.compat.forge;
+package xiao.cbra.mts.compat.forge.init;
 
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -10,9 +10,9 @@ import xiao.cbra.mts.common.VehicleRenderDistance;
  * Forge 侧的生命周期接线。
  */
 @Mod.EventBusSubscriber(modid = CbraMts.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-public class CbraMtsForgeSetup {
+public class ForgeCommonSetup {
 
-    private CbraMtsForgeSetup() {
+    private ForgeCommonSetup() {
     }
 
     /**
