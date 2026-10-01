@@ -45,6 +45,22 @@
 }
 ```
 
+### 配置文件
+
+配置文件为 `config/cbramts.json`，服务端与客户端各自读取本地的文件。
+
+- vehicleHealthScale：全载具生命上限的缩放比例，默认 `1.0`；载具包原本为 150 时，设为 `10.0` 即为 1500。同时作用于载具本体与部件，值为 0（无限血量）的定义不受影响
+- allPartsAttackable：是否让所有碰撞盒都带上 `ATTACK` 类型，默认 `false`；开启后原本只标注了其他类型、被子弹命中却不掉血的部件也会正常出伤
+- modifyRenderDistance：是否修改载具的可见范围，默认 `true`
+- renderDistance：载具的可见范围，单位为区块，默认 `32`（MTS 原值）
+- modifyVehicleSoundDistance：是否修改引擎音效的传播距离，默认 `true`
+- vehicleSoundDistance：引擎音效的传播距离，单位为区块，默认 `20`；只作用于引擎部件，衰减曲线的形状按比例保留
+- vehicleDropOnDestroy：载具被摧毁时是否掉落部件（轮胎、引擎等）与已装仪器，默认 `true`；置 `false` 后载具只做爆炸和消失，不再散落物品
+- vehicleCrashDestroySpeed：允许直接摧毁载具的速度下限，单位为 km/h，默认 `150`。只作用于定义了 `crashSpeedMax` 的车，走硬度分支的车（如 ft17）不受影响
+- vehicleDestructionDamageScale：碰撞摧毁伤害的系数，默认 `0.65`，以车包原始血量为基准
+
+生命上限与引擎音效距离在车包加载时改写，改动后需重进世界或重载资源包。
+
 ## 内容披露
 
 ### 衍生内容
@@ -99,6 +115,22 @@ Add [Common event loot](https://github.com/XColorful/BattleRoyale/wiki/General-l
 	}
 }
 ```
+
+### Config file
+
+The config file is `config/cbramts.json`, read locally by the server and each client.
+
+- vehicleHealthScale: Scale of every vehicle's max health, default `1.0`; a pack value of 150 becomes 1500 at `10.0`. Applies to vehicles and their parts alike; definitions with a value of 0 (infinite health) are left alone
+- allPartsAttackable: Whether every collision box should carry the `ATTACK` type, default `false`; parts previously tagged with other types only (hit by bullets but taking no damage) will take damage normally
+- modifyRenderDistance: Whether to modify the vehicle render distance, default `true`
+- renderDistance: Vehicle render distance, in chunks, default `32` (the MTS value)
+- modifyVehicleSoundDistance: Whether to modify the engine sound travel distance, default `true`
+- vehicleSoundDistance: Engine sound travel distance, in chunks, default `20`; applies to engine parts only, the attenuation curve shape is preserved
+- vehicleDropOnDestroy: Whether a destroyed vehicle drops its parts (tires, engines, ...) and installed instruments, default `true`; when `false` the vehicle only explodes and vanishes, leaving nothing behind
+- vehicleCrashDestroySpeed: Speed floor for direct vehicle destruction, in km/h, default `150`. Applies to vehicles that define `crashSpeedMax` only, so vehicles on the hardness branch (e.g. ft17) are unaffected
+- vehicleDestructionDamageScale: Multiplier for crash destruction damage, default `0.65`, relative to the pack's original health.
+
+Max health and engine sound distance are rewritten while vehicle packs load, so a world re-entry or resource reload is needed after changing them.
 
 ## Content disclosures
 
