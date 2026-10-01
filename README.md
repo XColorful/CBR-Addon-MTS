@@ -149,16 +149,16 @@ Max health and engine sound distance are rewritten while vehicle packs load, so 
   {
     "lootId": 0,
     "default": true,
-    "name": "Immersive vehicles",
+    "name": "Immersive Vehicles (Official Content Pack)",
     "color": "#FFFFFFAA",
     "entry": {
       "lootType": "random",
-      "chance": 0.8,
+      "chance": 0.75,
       "entry": {
         "lootType": "weight",
         "entries": [
           {
-            "weight": 35.0,
+            "weight": 13.4,
             "entry": {
               "lootType": "event",
               "protocol": "cbramts:0.5.6",
@@ -197,7 +197,7 @@ Max health and engine sound distance are rewritten while vehicle packs load, so 
             }
           },
           {
-            "weight": 15.0,
+            "weight": 9.6,
             "entry": {
               "lootType": "event",
               "protocol": "cbramts:0.5.6",
@@ -235,6 +235,43 @@ Max health and engine sound distance are rewritten while vehicle packs load, so 
                   "part_8": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
                   "part_9": "{packID:\"mts\",systemName:\"invisible_standing\",subName:\"\"}",
                   "part_11": "{packID:\"mtsofficialpack\",systemName:\"gloveboxscout\",subName:\"\"}"
+                }
+              }
+            }
+          },
+          {
+            "weight": 7.5,
+            "entry": {
+              "lootType": "event",
+              "protocol": "cbramts:0.5.6",
+              "jsonTag": {
+                "packID": "mtsofficialpack",
+                "systemName": "fordmustang69",
+                "subName": [
+                  "_red",
+                  "_yellow",
+                  "_black",
+                  "_silver",
+                  "_extravagant",
+                  "_orange",
+                  "_white",
+                  "_seagreen",
+                  "_bluestripe",
+                  "_redstripe",
+                  "_whitestripe",
+                  "_lime",
+                  "_police"
+                ],
+                "parts": {
+                  "part_0": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_1": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_2": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_3": "{packID:\"mtsofficialpack\",systemName:\"wheellarge\",subName:\"\"}",
+                  "part_4": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_5": "{packID:\"mtsofficialpack\",systemName:\"carseat\",subName:\"_black\"}",
+                  "part_6": "{packID:\"mtsofficialpack\",systemName:\"enginefordfe428\",subName:\"\"}",
+                  "part_8": "{packID:\"mtsofficialpack\",systemName:\"gloveboxscout\",subName:\"\"}",
+                  "part_9": "{packID:\"mtsofficialpack\",systemName:\"mirrorornament\",subName:\"\"}"
                 }
               }
             }
